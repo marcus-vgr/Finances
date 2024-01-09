@@ -1,7 +1,7 @@
 import sys
 
 from PyQt5.QtCore import QTimer, Qt
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit, QPushButton, QComboBox, QSizePolicy, QSpacerItem
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit, QPushButton, QComboBox, QLabel
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -53,6 +53,12 @@ class DateWindow(QMainWindow):
         self.expense_button.clicked.connect(self.add_expense)
         self.h_layout_expense2.addWidget(self.expense_button)
 
+        self.label_confirm_info = QLabel() # Adding a label right next to the Add Expense button. It will show, for limited time, if info was added or not.
+        self.h_layout_expense2.addWidget(self.label_confirm_info)
+        self.timer_label = QTimer()
+        self.timer_label.setSingleShot(True)
+        self.timer_label.timeout.connect(lambda: self.label_confirm_info.clear())
+
         self.h_layout_expense1.setSpacing(6) # space between the blank spaces and button
         self.h_layout_expense1.addStretch() # align to the left
         self.layout.addLayout(self.h_layout_expense1)
@@ -88,7 +94,21 @@ class DateWindow(QMainWindow):
         description = self.description.text()
         category = self.category.currentText()
 
-        print(value, description, category)
+        infoValid = False
+        try:
+            value = float(value)
+            if value > 0 and description != "" and category in CATEGORIES:
+                infoValid = True
+        except:
+            pass            
+        if infoValid > 0:
+            self.label_confirm_info.setStyleSheet("color: green")
+            self.label_confirm_info.setText("Expense added "+u'\u2713') #\u2713 is unicode for the checkmark
+        else:
+            self.label_confirm_info.setStyleSheet("color: red")
+            self.label_confirm_info.setText("Information not valid...")
+        self.timer_label.start(3000) #3 seconds for the label timer
+        
 
     def show_expenses(self):
         print("Placeholder show expenses")
