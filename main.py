@@ -3,7 +3,7 @@ import numpy as np
 import sqlite3
 
 from PyQt5.QtCore import QTimer, pyqtSignal
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit, QPushButton, QComboBox, QLabel
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit, QPushButton, QComboBox, QLabel, QListWidget, QListWidgetItem
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -55,6 +55,7 @@ class DatabaseHandler:
             items_list.append(l)
         return items_list
 
+
 class ExpensesWindow(QMainWindow):
     def __init__(self, db_handler, month, year):
         super().__init__()
@@ -62,9 +63,60 @@ class ExpensesWindow(QMainWindow):
         self.db_handler = db_handler
         self.month = month
         self.year = year
+        self.items = self.db_handler.get_elements_period(self.month, self.year)
+        self.items_print = self.make_printing_nice()
+        
+        self.setWindowTitle(f"Expenses of {self.month} {self.year}")
+        self.setGeometry(550, 300, 800, 500)
+        
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        
+        self.layout = QVBoxLayout()
+        self.list_widget = QListWidget()
+        self.write_expenses_window()
+        
+        
+        self.layout.addWidget(self.list_widget)
+        self.central_widget.setLayout(self.layout)
+
+    def make_printing_nice(self):
+        #Making our printing nice in the table. So everything is well separated in tabs
+        items_print = []
+        for item in self.items:
+            day, category, value, description = item
+            cols_days = 7
+            cols_category = 25
+            cols_values = 10
+            
+            line = day + " "*(cols_days-len(day))
+            line += category + " "*(cols_category-len(category))
+            line += value + " "*(cols_values-len(value))
+            line += description
+            
+            items_print.append(line)
+        return items_print
 
 
+    def write_expenses_window(self):
+        for item in self.items_print:
+            label_item = QLabel(item)
+            label_item.setFixedWidth(500)
+            delete_button = QPushButton(u'\u274C') #Unicode for delete symbol
+            delete_button.setFixedWidth(50)
+            h_layout = QHBoxLayout()
+            h_layout.addWidget(QLabel(item))
+            h_layout.addWidget(delete_button)
+            item_widget = QWidget()
+            item_widget.setLayout(h_layout)
 
+            list_item = QListWidgetItem()
+            list_item.setSizeHint(item_widget.sizeHint())
+            self.list_widget.addItem(list_item)
+            self.list_widget.setItemWidget(list_item, item_widget)
+
+
+    
 
 class DateWindow(QMainWindow):
 
@@ -200,8 +252,8 @@ class DateWindow(QMainWindow):
         
 
     def show_expenses(self):
-        items = self.db_handler.get_elements_period(self.month, self.year)
-        print(items)
+        self.expenses_window = ExpensesWindow(self.db_handler, self.month, self.year)
+        self.expenses_window.show()
 
     def plotSummaryDate(self):
         self.figure_summary_date.clear()
