@@ -19,9 +19,9 @@ class DatabaseHandler:
             CREATE TABLE IF NOT EXISTS user_data (
                             month TEXT,
                             year TEXT,
-                            day INT,
+                            day TEXT,
                             category TEXT,
-                            value FLOAT,
+                            value TEXT,
                             description TEXT
             )                   
         ''')
@@ -49,7 +49,11 @@ class DatabaseHandler:
         self.cursor.execute('SELECT * FROM user_data WHERE month=? AND year=?',
                                        (month, year))
         items = self.cursor.fetchall()
-        return items
+        items_list = []
+        for item in items:
+            l = [str(elem) for elem in item[2:]]
+            items_list.append(l)
+        return items_list
 
 class ExpensesWindow(QMainWindow):
     def __init__(self, db_handler, month, year):
@@ -59,7 +63,8 @@ class ExpensesWindow(QMainWindow):
         self.month = month
         self.year = year
 
-        
+
+
 
 class DateWindow(QMainWindow):
 
@@ -169,11 +174,11 @@ class DateWindow(QMainWindow):
         
         infoValid = False
         try:  # Checking if all info given by the user makes sense
-            value = float(value)
             if day.isdigit():
-                day = int(day)
-                if value > 0 and day > 0 and day < 32 and description != "" and category in CATEGORIES:
+                if float(value) > 0 and int(day) > 0 and int(day) < 32 and description != "" and category in CATEGORIES:
                     infoValid = True
+                if "." in value and len(value.split('.')[-1]) > 2:
+                    infoValid = False
         except:
             pass            
 
@@ -182,6 +187,12 @@ class DateWindow(QMainWindow):
             self.label_confirm_info.setStyleSheet("color: green")
             self.label_confirm_info.setText("Expense added "+u'\u2713') #\u2713 is unicode for the checkmark
 
+            if len(day) == 1:  #Standarizing notation 
+                day = "0"+day
+            if "." not in value:
+                value = value+".00"
+            elif len(value.split('.')[-1]) == 1:
+                value = value+"0"
             self.db_handler.add_entry(self.month, self.year, day, category, value, description)
         else:
             self.label_confirm_info.setStyleSheet("color: red")
@@ -189,11 +200,8 @@ class DateWindow(QMainWindow):
         
 
     def show_expenses(self):
-        self.db_handler.cursor.execute('SELECT * FROM user_data WHERE month=? AND year=?',
-                                       (self.month, self.year))
-        expenses = self.db_handler.cursor.fetchall()
-        for expense in expenses:
-            print(expense)
+        items = self.db_handler.get_elements_period(self.month, self.year)
+        print(items)
 
     def plotSummaryDate(self):
         self.figure_summary_date.clear()
