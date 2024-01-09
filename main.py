@@ -1,21 +1,81 @@
 import sys
+import numpy as np
+import sqlite3
 
-from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtCore import QTimer, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit, QPushButton, QComboBox, QLabel
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-import matplotlib.pyplot as plt
 
-import numpy as np
 
-class DateWindow(QMainWindow):
-    def __init__(self, month, year):
+class DatabaseHandler:
+    def __init__(self):
+        self.db_file = "MyExpenses.db"
+        
+        self.conn = sqlite3.connect(self.db_file)
+        self.cursor = self.conn.cursor()
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_data (
+                            month TEXT,
+                            year TEXT,
+                            day INT,
+                            category TEXT,
+                            value FLOAT,
+                            description TEXT
+            )                   
+        ''')
+    
+    def close_connection(self):
+        self.conn.close()
+
+    def add_entry(self, month, year, day, category, value, description):
+        self.cursor.execute('INSERT INTO user_data VALUES (?, ?, ?, ?, ?, ?)',
+                            (month, year, day, category, value, description))
+        self.conn.commit()
+
+    def delete_entry(self, month, year, day, category, value, description):
+        self.cursor.execute('''DELETE FROM user_data WHERE 
+                            month=? AND 
+                            year=? AND
+                            day=? AND
+                            category=? AND
+                            value=? AND
+                            description=?
+        ''',(month, year, day, category, value, description))
+        self.conn.commit()
+    
+    def get_elements_period(self, month, year):
+        self.cursor.execute('SELECT * FROM user_data WHERE month=? AND year=?',
+                                       (month, year))
+        items = self.cursor.fetchall()
+        return items
+
+class ExpensesWindow(QMainWindow):
+    def __init__(self, db_handler, month, year):
         super().__init__()
 
-        self.setWindowTitle(f"Expenses of {month} {year}")
-        self.setGeometry(500, 300, 600, 300)
+        self.db_handler = db_handler
+        self.month = month
+        self.year = year
 
+        
+
+class DateWindow(QMainWindow):
+
+    closed = pyqtSignal() # This will be to emit a signal if this window is closed. This will be used to avoid closing the main window while this one is open.
+
+
+    def __init__(self, db_handler, month, year):
+        super().__init__()
+
+        self.db_handler = db_handler
+        self.month = month
+        self.year = year
+        
+        self.setWindowTitle(f"Expenses of {self.month} {self.year}")
+        self.setGeometry(500, 300, 600, 300)
+        
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
 
@@ -27,6 +87,13 @@ class DateWindow(QMainWindow):
         Interface to add expenses
         """
         self.h_layout_expense1 = QHBoxLayout()
+        self.day = QLineEdit()
+        self.day.setFixedWidth(120)
+        self.day.setPlaceholderText("Day: ")
+        self.day.setStyleSheet("color: gray") # Color is gray while no input
+        self.day.textChanged.connect(lambda: self.day.setStyleSheet("color: black") if self.day.text() else self.day.setStyleSheet("color: gray")) 
+        self.h_layout_expense1.addWidget(self.day)
+        
         self.value = QLineEdit()
         self.value.setFixedWidth(120)
         self.value.setPlaceholderText("Value (€)")
@@ -89,29 +156,44 @@ class DateWindow(QMainWindow):
 
         self.central_widget.setLayout(self.layout)
 
+    def closeEvent(self, event):
+        # Override closeEvent to avoid closing the main window while this one is open
+        self.closed.emit() #Emit signal so that the main window knows this one is now closed.
+        event.accept() 
+
     def add_expense(self):
+        day = self.day.text()
         value = self.value.text()
         description = self.description.text()
         category = self.category.currentText()
-
+        
         infoValid = False
-        try:
+        try:  # Checking if all info given by the user makes sense
             value = float(value)
-            if value > 0 and description != "" and category in CATEGORIES:
-                infoValid = True
+            if day.isdigit():
+                day = int(day)
+                if value > 0 and day > 0 and day < 32 and description != "" and category in CATEGORIES:
+                    infoValid = True
         except:
             pass            
+
+        self.timer_label.start(3000) #3 seconds for the label timer
         if infoValid > 0:
             self.label_confirm_info.setStyleSheet("color: green")
             self.label_confirm_info.setText("Expense added "+u'\u2713') #\u2713 is unicode for the checkmark
+
+            self.db_handler.add_entry(self.month, self.year, day, category, value, description)
         else:
             self.label_confirm_info.setStyleSheet("color: red")
             self.label_confirm_info.setText("Information not valid...")
-        self.timer_label.start(3000) #3 seconds for the label timer
         
 
     def show_expenses(self):
-        print("Placeholder show expenses")
+        self.db_handler.cursor.execute('SELECT * FROM user_data WHERE month=? AND year=?',
+                                       (self.month, self.year))
+        expenses = self.db_handler.cursor.fetchall()
+        for expense in expenses:
+            print(expense)
 
     def plotSummaryDate(self):
         self.figure_summary_date.clear()
@@ -122,8 +204,11 @@ class DateWindow(QMainWindow):
         self.canvas_summary_date.draw()
 
 class ExpenseManager(QMainWindow):
-    def __init__(self):
+    def __init__(self, db_handler):
         super().__init__()
+
+        self.date_window = None
+        self.db_handler = db_handler
 
         self.getPrivateConstants()
 
@@ -177,6 +262,15 @@ class ExpenseManager(QMainWindow):
 
         self.central_widget.setLayout(self.layout)
 
+    def closeEvent(self, event): 
+        # Override closeEvent to ensure database closure when closing main window
+        # Also be sure the Date window is already closed.
+        if self.date_window is not None: 
+            event.ignore()
+        else:
+            self.db_handler.close_connection()
+            event.accept()
+
     def getPrivateConstants(self):
         self.MONTHS = [
                         "January", "February", "March", "April", "May", "June",
@@ -190,8 +284,12 @@ class ExpenseManager(QMainWindow):
         if month not in self.MONTHS or year not in self.YEARS:
             return
 
-        self.date_window = DateWindow(month, year)
+        self.date_window = DateWindow(self.db_handler, month, year)
+        self.date_window.closed.connect(self.close_WindowDate)
         self.date_window.show()
+    
+    def close_WindowDate(self):
+        self.date_window = None
 
     def plotSummaryAllMonths(self):
         self.figure_summary_all.clear()
@@ -206,10 +304,11 @@ class ExpenseManager(QMainWindow):
 
 def main():
     app = QApplication(sys.argv)
-    window = ExpenseManager()
+    db_handler = DatabaseHandler()
+    window = ExpenseManager(db_handler)
     window.show()
     sys.exit(app.exec_())
 
 if __name__ == '__main__':
-    CATEGORIES = ["Home Bills", "Travel", "Food", "Leisure", "To myself", "Education", "Others"]
+    CATEGORIES = ["Home", "Travel", "Food", "Leisure", "To myself", "Education", "Others"]
     main()
