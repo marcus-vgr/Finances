@@ -2,7 +2,7 @@ import sys
 import numpy as np
 import sqlite3
 
-from PyQt5.QtCore import QTimer, pyqtSignal
+from PyQt5.QtCore import QTimer, pyqtSignal, QPoint
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit, QPushButton, QComboBox, QLabel, QListWidget, QListWidgetItem
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
@@ -51,7 +51,7 @@ class DatabaseHandler:
         items = self.cursor.fetchall()
         items_list = []
         for item in items:
-            l = [str(elem) for elem in item[2:]]
+            l = [elem for elem in item[2:]]
             items_list.append(l)
         return items_list
 
@@ -67,13 +67,15 @@ class ExpensesWindow(QMainWindow):
         self.items_print = self.make_printing_nice()
         
         self.setWindowTitle(f"Expenses of {self.month} {self.year}")
-        self.setGeometry(550, 300, 800, 500)
+        self.setGeometry(550, 300, 800, 400)
         
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         
         self.layout = QVBoxLayout()
+        self.layout.setSpacing(0)
         self.list_widget = QListWidget()
+        self.button_ordering_dict = {}
         self.write_expenses_window()
         
         
@@ -99,11 +101,18 @@ class ExpensesWindow(QMainWindow):
 
 
     def write_expenses_window(self):
-        for item in self.items_print:
+
+        for pos_button,item in enumerate(self.items_print):
+            
             label_item = QLabel(item)
             label_item.setFixedWidth(500)
-            delete_button = QPushButton(u'\u274C') #Unicode for delete symbol
-            delete_button.setFixedWidth(50)
+            
+            delete_button = QPushButton("Delete")
+            delete_button.setStyleSheet("color: red")
+            delete_button.setFixedWidth(100)
+            self.button_ordering_dict[delete_button] = pos_button
+            delete_button.clicked.connect(self.delete_item)
+
             h_layout = QHBoxLayout()
             h_layout.addWidget(QLabel(item))
             h_layout.addWidget(delete_button)
@@ -115,9 +124,22 @@ class ExpensesWindow(QMainWindow):
             self.list_widget.addItem(list_item)
             self.list_widget.setItemWidget(list_item, item_widget)
 
+    def delete_item(self):
+
+        clicked_signal = self.sender() # Get which button sent a signal
+        globalPoint = clicked_signal.mapToGlobal(QPoint())
+        localPoint = self.list_widget.viewport().mapFromGlobal(globalPoint) # Finding which row of the list our clicked widget is
+        widget = self.list_widget.itemAt(localPoint) # Getting the widget
+        item = self.list_widget.itemWidget(widget).findChild(QLabel).text() #Getting the QLabel.text() of the widget 
+        self.list_widget.takeItem( self.list_widget.row(widget) ) #Exclude widget from list 
+        
+        for idx in range(len(self.items_print)): #Finding the info of the item based on idx of the print list 
+            if self.items_print[idx] == item:
+                expense_to_exclude = self.items[idx]
+                break
+        self.db_handler.delete_entry(self.month, self.year, *expense_to_exclude)
 
     
-
 class DateWindow(QMainWindow):
 
     closed = pyqtSignal() # This will be to emit a signal if this window is closed. This will be used to avoid closing the main window while this one is open.
@@ -238,7 +260,7 @@ class DateWindow(QMainWindow):
         if infoValid > 0:
             self.label_confirm_info.setStyleSheet("color: green")
             self.label_confirm_info.setText("Expense added "+u'\u2713') #\u2713 is unicode for the checkmark
-
+            
             if len(day) == 1:  #Standarizing notation 
                 day = "0"+day
             if "." not in value:
@@ -246,6 +268,12 @@ class DateWindow(QMainWindow):
             elif len(value.split('.')[-1]) == 1:
                 value = value+"0"
             self.db_handler.add_entry(self.month, self.year, day, category, value, description)
+
+            self.day.setText("") # Back to default
+            self.value.setText("")
+            self.description.setText("")
+            self.category.setCurrentText("Category...")
+
         else:
             self.label_confirm_info.setStyleSheet("color: red")
             self.label_confirm_info.setText("Information not valid...")
