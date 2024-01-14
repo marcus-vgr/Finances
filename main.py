@@ -4,6 +4,7 @@ import sqlite3
 
 from PyQt5.QtCore import QTimer, pyqtSignal, QPoint
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit, QPushButton, QComboBox, QLabel, QListWidget, QListWidgetItem
+from PyQt5.QtGui import QFont
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -75,7 +76,6 @@ class ExpensesWindow(QMainWindow):
         self.layout = QVBoxLayout()
         self.layout.setSpacing(0)
         self.list_widget = QListWidget()
-        self.button_ordering_dict = {}
         self.write_expenses_window()
         
         
@@ -87,8 +87,8 @@ class ExpensesWindow(QMainWindow):
         items_print = []
         for item in self.items:
             day, category, value, description = item
-            cols_days = 7
-            cols_category = 25
+            cols_days = 5
+            cols_category = 15
             cols_values = 10
             
             line = day + " "*(cols_days-len(day))
@@ -102,15 +102,14 @@ class ExpensesWindow(QMainWindow):
 
     def write_expenses_window(self):
 
-        for pos_button,item in enumerate(self.items_print):
+        for item in self.items_print:
             
             label_item = QLabel(item)
             label_item.setFixedWidth(500)
-            
+        
             delete_button = QPushButton("Delete")
             delete_button.setStyleSheet("color: red")
             delete_button.setFixedWidth(100)
-            self.button_ordering_dict[delete_button] = pos_button
             delete_button.clicked.connect(self.delete_item)
 
             h_layout = QHBoxLayout()
@@ -120,9 +119,15 @@ class ExpensesWindow(QMainWindow):
             item_widget.setLayout(h_layout)
 
             list_item = QListWidgetItem()
-            list_item.setSizeHint(item_widget.sizeHint())
+            sizeHint = item_widget.sizeHint()
+            sizeHint.setHeight(40)
+            list_item.setSizeHint(sizeHint)
             self.list_widget.addItem(list_item)
             self.list_widget.setItemWidget(list_item, item_widget)
+
+        teste = item_widget.sizeHint()
+        print(teste.height(), teste.width())
+
 
     def delete_item(self):
 
@@ -138,8 +143,7 @@ class ExpensesWindow(QMainWindow):
                 expense_to_exclude = self.items[idx]
                 break
         self.db_handler.delete_entry(self.month, self.year, *expense_to_exclude)
-
-    
+  
 class DateWindow(QMainWindow):
 
     closed = pyqtSignal() # This will be to emit a signal if this window is closed. This will be used to avoid closing the main window while this one is open.
@@ -392,6 +396,7 @@ class ExpenseManager(QMainWindow):
 
 def main():
     app = QApplication(sys.argv)
+    app.setFont(QFont(FONT))
     db_handler = DatabaseHandler()
     window = ExpenseManager(db_handler)
     window.show()
@@ -399,4 +404,5 @@ def main():
 
 if __name__ == '__main__':
     CATEGORIES = ["Home", "Travel", "Food", "Leisure", "To myself", "Education", "Others"]
+    FONT = "PT Mono"
     main()
