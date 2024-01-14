@@ -56,8 +56,10 @@ class DatabaseHandler:
         items = self.cursor.fetchall()
         items_list = []
         for item in items:
-            l = [elem for elem in item[2:]]
+            l = [elem for elem in item[2:]] # Getting just the important entries
             items_list.append(l)
+        
+        items_list.sort(key=lambda x: int(x[0])) #sorting list
         return items_list
 
 
@@ -307,8 +309,9 @@ class DateWindow(QMainWindow):
             values_expenses = list(dict_expenses.values())
             ax.bar(types_expenses, values_expenses, color='#5688e5')
             for day, value in zip(types_expenses, values_expenses):
-                ax.text(day, value + 0.1, str(value)+"€", ha='center', va='bottom')
+                ax.text(day, value + 0.1, "{:.2f}€".format(value), ha='center', va='bottom')
 
+            ax.set_title("Total: {:.2f}€".format(sum(values_expenses)), loc='right')
             ax.set_ylim(top=1.15*max(values_expenses))
         else:
             ax.text(0.5, 0.5, "No expenses so far", fontsize=10, ha='center', va='center')
@@ -338,15 +341,15 @@ class ExpenseManager(QMainWindow):
         
         self.input_month = QComboBox()
         self.input_month.addItems(["Month..."] + MONTHS)
-        #self.input_month.setCurrentText("Month...")
-        self.input_month.setCurrentText("January")
+        self.input_month.setCurrentText("Month...")
+        #self.input_month.setCurrentText("January")
         self.input_month.setFixedWidth(100)
         self.h_layout_input.addWidget(self.input_month)
         
         self.input_year = QComboBox()
         self.input_year.addItems(["Year..."] + YEARS)
-        #self.input_year.setCurrentText("Year...")
-        self.input_year.setCurrentText("2024")
+        self.input_year.setCurrentText("Year...")
+        #self.input_year.setCurrentText("2024")
         self.input_year.setFixedWidth(80)
         self.h_layout_input.addWidget(self.input_year)
         
