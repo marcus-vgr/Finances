@@ -1,4 +1,7 @@
 import sys
+import os
+import shutil
+import time
 import numpy as np
 import sqlite3
 
@@ -8,11 +11,12 @@ from PyQt5.QtGui import QFont
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
 
 
 class DatabaseHandler:
     def __init__(self):
-        self.db_file = "MyExpenses.db"
+        self.db_file = DB_FILENAME
         
         self.conn = sqlite3.connect(self.db_file)
         self.cursor = self.conn.cursor()
@@ -125,10 +129,7 @@ class ExpensesWindow(QMainWindow):
             self.list_widget.addItem(list_item)
             self.list_widget.setItemWidget(list_item, item_widget)
 
-        teste = item_widget.sizeHint()
-        print(teste.height(), teste.width())
-
-
+        
     def delete_item(self):
 
         clicked_signal = self.sender() # Get which button sent a signal
@@ -229,6 +230,7 @@ class DateWindow(QMainWindow):
         Adding figure with the plot summary
         """
         self.figure_summary_date = Figure(figsize=(6,4), dpi=100)
+        self.figure_summary_date.set_tight_layout(True)
         self.canvas_summary_date = FigureCanvasQTAgg(self.figure_summary_date)
         self.layout.addSpacing(10)
         self.layout.addWidget(self.canvas_summary_date)
@@ -289,10 +291,29 @@ class DateWindow(QMainWindow):
 
     def plotSummaryDate(self):
         self.figure_summary_date.clear()
-        
         ax = self.figure_summary_date.add_subplot(111)
-        ax.text(0.5, 0.5, 'PLACEHOLDER '+str(np.random.random()), fontsize=10, ha='center', va='center')
         
+        expenses = self.db_handler.get_elements_period(self.month, self.year)
+        if len(expenses) > 0:
+            dict_expenses = {}
+            for category in CATEGORIES:
+                total = 0.0
+                for expense in expenses:
+                    if expense[1] == category:
+                        total += float(expense[2])
+                dict_expenses[category] = total
+            
+            types_expenses = list(dict_expenses.keys())
+            values_expenses = list(dict_expenses.values())
+            ax.bar(types_expenses, values_expenses, color='#5688e5')
+            for day, value in zip(types_expenses, values_expenses):
+                ax.text(day, value + 0.1, str(value)+"€", ha='center', va='bottom')
+
+            ax.set_ylim(top=1.15*max(values_expenses))
+        else:
+            ax.text(0.5, 0.5, "No expenses so far", fontsize=10, ha='center', va='center')
+        
+        ax.get_yaxis().set_visible(False)
         self.canvas_summary_date.draw()
 
 class ExpenseManager(QMainWindow):
@@ -301,8 +322,6 @@ class ExpenseManager(QMainWindow):
 
         self.date_window = None
         self.db_handler = db_handler
-
-        self.getPrivateConstants()
 
         self.setWindowTitle('My Expenses')
         self.setGeometry(400, 200, 600, 300)
@@ -318,14 +337,14 @@ class ExpenseManager(QMainWindow):
         self.h_layout_input = QHBoxLayout() # Creating horizontal summary for the buttons
         
         self.input_month = QComboBox()
-        self.input_month.addItems(["Month..."] + self.MONTHS)
+        self.input_month.addItems(["Month..."] + MONTHS)
         #self.input_month.setCurrentText("Month...")
         self.input_month.setCurrentText("January")
         self.input_month.setFixedWidth(100)
         self.h_layout_input.addWidget(self.input_month)
         
         self.input_year = QComboBox()
-        self.input_year.addItems(["Year..."] + self.YEARS)
+        self.input_year.addItems(["Year..."] + YEARS)
         #self.input_year.setCurrentText("Year...")
         self.input_year.setCurrentText("2024")
         self.input_year.setFixedWidth(80)
@@ -344,6 +363,7 @@ class ExpenseManager(QMainWindow):
         Adding figure with the plot summary
         """
         self.figure_summary_all = Figure(figsize=(6,4), dpi=100)
+        self.figure_summary_all.set_tight_layout(True)
         self.canvas_summary_all = FigureCanvasQTAgg(self.figure_summary_all)
         self.layout.addWidget(self.canvas_summary_all)
         self.plotSummaryAllMonths()
@@ -363,17 +383,10 @@ class ExpenseManager(QMainWindow):
             self.db_handler.close_connection()
             event.accept()
 
-    def getPrivateConstants(self):
-        self.MONTHS = [
-                        "January", "February", "March", "April", "May", "June",
-                        "July", "August", "September", "October", "November", "December"
-                    ]
-        self.YEARS  = [str(y) for y in range(2024, 2031)]
-
     def open_WindowDate(self):
         month = self.input_month.currentText() 
         year  = self.input_year.currentText()
-        if month not in self.MONTHS or year not in self.YEARS:
+        if month not in MONTHS or year not in YEARS:
             return
 
         self.date_window = DateWindow(self.db_handler, month, year)
@@ -394,7 +407,18 @@ class ExpenseManager(QMainWindow):
 
 
 
+def CreateBackup():
+    timestamp = time.strftime("%Y%m%d")
+    filename_backup = DB_FILENAME.replace(".db", f"_{timestamp}.db")
+    shutil.copy(DB_FILENAME, f"Backup/{filename_backup}")
+    
+    for file in os.listdir("Backup"):
+        if ".db" in file and file != filename_backup:
+            os.remove(f"Backup/{file}")
+
+
 def main():
+    CreateBackup()
     app = QApplication(sys.argv)
     app.setFont(QFont(FONT))
     db_handler = DatabaseHandler()
@@ -403,6 +427,17 @@ def main():
     sys.exit(app.exec_())
 
 if __name__ == '__main__':
-    CATEGORIES = ["Home", "Travel", "Food", "Leisure", "To myself", "Education", "Others"]
+
+    DB_FILENAME = "MyExpenses.db"
+    CATEGORIES = ["Home", "Food", "Leisure", "To myself", "Travel", "Education", "Others"]
     FONT = "PT Mono"
+    MONTHS = [
+                "January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"
+            ]
+    YEARS  = [str(y) for y in range(2024, 2031)]
+    plt.rcParams.update({
+        "font.family": FONT,
+        "font.size": 9,
+    })
     main()
