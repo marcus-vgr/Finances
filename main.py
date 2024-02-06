@@ -61,6 +61,38 @@ class DatabaseHandler:
         
         items_list.sort(key=lambda x: int(x[0])) #sorting list
         return items_list
+    
+    def get_cumulative_expenses_until_period(self, month, year):
+        
+        ## Create a list with all entries we should get
+        periods = []
+        to_break = False
+        for y in tuple(YEARS):
+            for m in tuple(MONTHS):
+                if y == year and m == month:
+                    to_break = True
+                    break
+                periods.append([m, y])
+            if to_break:
+                break        
+        
+        sql_query = 'SELECT * FROM user_data WHERE month=? AND year=?'
+        items_list = {}
+        for period in periods:
+            m, y = period
+            self.cursor.execute(sql_query, (m,y))
+            items = self.cursor.fetchall()
+            
+            items_list[f"{m}|{y}"] = {}
+            for category in CATEGORIES:
+                items_list[f"{m}|{y}"][category] = 0.0 # Initialising with 0euros
+            
+            for item in items:
+                category = item[3]
+                value = float(item[4])
+                items_list[f"{m}|{y}"][category] += value
+                 
+        return items_list
 
 
 class ExpensesWindow(QMainWindow):
@@ -342,14 +374,12 @@ class ExpenseManager(QMainWindow):
         self.input_month = QComboBox()
         self.input_month.addItems(["Month..."] + MONTHS)
         self.input_month.setCurrentText("Month...")
-        #self.input_month.setCurrentText("January")
         self.input_month.setFixedWidth(100)
         self.h_layout_input.addWidget(self.input_month)
         
         self.input_year = QComboBox()
         self.input_year.addItems(["Year..."] + YEARS)
         self.input_year.setCurrentText("Year...")
-        #self.input_year.setCurrentText("2024")
         self.input_year.setFixedWidth(80)
         self.h_layout_input.addWidget(self.input_year)
         
@@ -402,12 +432,67 @@ class ExpenseManager(QMainWindow):
     def plotSummaryAllMonths(self):
         self.figure_summary_all.clear()
         
+        year, month = time.strftime("%Y,%m").split(',')
+        month = MONTHS[int(month)-1] #Convert to proper month name
+        
+        items = self.db_handler.get_cumulative_expenses_until_period(month, year)
         ax = self.figure_summary_all.add_subplot(111)
-        ax.text(0.5, 0.5, 'PLACEHOLDER '+str(np.random.random()), fontsize=10, ha='center', va='center')
-        ax.set_title("Average of expenses till [MONTH/YEAR]")
+        if len(items) > 0:
+            types_expenses = CATEGORIES.copy()
+            values_expenses = []
+            for category in CATEGORIES:
+                aux = [items[key][category] for key in items.keys()]
+                mean, std = np.mean(aux), np.std(aux)
+                values_expenses.append([mean, std])
+
+            values_expenses = np.array(values_expenses)
+            ax.bar(types_expenses, values_expenses.T[0], color='#5688e5')
+            ax.errorbar(range(len(types_expenses)), values_expenses.T[0], yerr=values_expenses.T[1], 
+                        fmt='.', color='black', capsize=2)
+            for day, value, std in zip(types_expenses, values_expenses.T[0], values_expenses.T[1]):
+                
+                ax.text(day, value+std + 75, "{:.2f}€".format(value), ha='center', va='bottom')
+                ax.text(day, value+std + 0.5, "(±{:d}€)".format(int(std)), ha='center', va='bottom', fontsize=7)
+
+            ax.set_title(f"Average of expenses until {month} {year}"+" [Total: {:.2f}€]".format(sum(values_expenses.T[0])), loc='right')
+            
+            value_plus_std = np.sum(values_expenses, axis=1)
+            ax.set_ylim(top=1.25*max(value_plus_std))
+            
+        else:
+            ax.text(0.5, 0.5, "No expenses so far", fontsize=10, ha='center', va='center')
+
         
         self.canvas_summary_all.draw()
 
+
+    def plotSummaryDate(self):
+        self.figure_summary_date.clear()
+        ax = self.figure_summary_date.add_subplot(111)
+        
+        expenses = self.db_handler.get_elements_period(self.month, self.year)
+        if len(expenses) > 0:
+            dict_expenses = {}
+            for category in CATEGORIES:
+                total = 0.0
+                for expense in expenses:
+                    if expense[1] == category:
+                        total += float(expense[2])
+                dict_expenses[category] = total
+            
+            types_expenses = list(dict_expenses.keys())
+            values_expenses = list(dict_expenses.values())
+            ax.bar(types_expenses, values_expenses, color='#5688e5')
+            for day, value in zip(types_expenses, values_expenses):
+                ax.text(day, value + 0.1, "{:.2f}€".format(value), ha='center', va='bottom')
+
+            ax.set_title("Total: {:.2f}€".format(sum(values_expenses)), loc='right')
+            ax.set_ylim(top=1.15*max(values_expenses))
+        else:
+            ax.text(0.5, 0.5, "No expenses so far", fontsize=10, ha='center', va='center')
+        
+        ax.get_yaxis().set_visible(False)
+        self.canvas_summary_date.draw()
 
 
 def CreateBackup():
