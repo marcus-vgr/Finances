@@ -448,9 +448,8 @@ class ExpenseManager(QMainWindow):
             values_expenses = np.array(values_expenses)
             ax.bar(types_expenses, values_expenses.T[0], color='#5688e5')
             ax.errorbar(range(len(types_expenses)), values_expenses.T[0], yerr=values_expenses.T[1], 
-                        fmt='.', color='black', capsize=2)
+                        fmt='.', color='black', capsize=2, alpha=0.3)
             for day, value, std in zip(types_expenses, values_expenses.T[0], values_expenses.T[1]):
-                
                 ax.text(day, value+std + 75, "{:.2f}€".format(value), ha='center', va='bottom')
                 ax.text(day, value+std + 0.5, "(±{:d}€)".format(int(std)), ha='center', va='bottom', fontsize=7)
 
@@ -464,35 +463,6 @@ class ExpenseManager(QMainWindow):
 
         
         self.canvas_summary_all.draw()
-
-
-    def plotSummaryDate(self):
-        self.figure_summary_date.clear()
-        ax = self.figure_summary_date.add_subplot(111)
-        
-        expenses = self.db_handler.get_elements_period(self.month, self.year)
-        if len(expenses) > 0:
-            dict_expenses = {}
-            for category in CATEGORIES:
-                total = 0.0
-                for expense in expenses:
-                    if expense[1] == category:
-                        total += float(expense[2])
-                dict_expenses[category] = total
-            
-            types_expenses = list(dict_expenses.keys())
-            values_expenses = list(dict_expenses.values())
-            ax.bar(types_expenses, values_expenses, color='#5688e5')
-            for day, value in zip(types_expenses, values_expenses):
-                ax.text(day, value + 0.1, "{:.2f}€".format(value), ha='center', va='bottom')
-
-            ax.set_title("Total: {:.2f}€".format(sum(values_expenses)), loc='right')
-            ax.set_ylim(top=1.15*max(values_expenses))
-        else:
-            ax.text(0.5, 0.5, "No expenses so far", fontsize=10, ha='center', va='center')
-        
-        ax.get_yaxis().set_visible(False)
-        self.canvas_summary_date.draw()
 
 
 def CreateBackup():
