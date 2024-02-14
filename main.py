@@ -103,7 +103,6 @@ class ExpensesWindow(QMainWindow):
         self.month = month
         self.year = year
         self.items = self.db_handler.get_elements_period(self.month, self.year)
-        self.items_print = self.make_printing_nice()
         
         self.setWindowTitle(f"Expenses of {self.month} {self.year}")
         self.setGeometry(550, 300, 800, 400)
@@ -113,15 +112,60 @@ class ExpensesWindow(QMainWindow):
         
         self.layout = QVBoxLayout()
         self.layout.setSpacing(0)
+        
+        self.h_layout = QHBoxLayout()
+        sort_label = QLabel("Sort by: ")
+        self.sort_by_date_button = QPushButton()
+        self.sort_by_date_button.setFixedWidth(35)
+        sort_date_label = QLabel(" date ")
+        self.sort_by_category_button = QPushButton()
+        self.sort_by_category_button.setFixedWidth(35)
+        sort_category_label = QLabel(" category ")
+        self.sort_by_date_button.setCheckable(True)
+        self.sort_by_category_button.setCheckable(True)
+        self.sort_by_date_button.clicked.connect(self._sort_by_date)
+        self.sort_by_category_button.clicked.connect(self._sort_by_category)
+        self.sort_by_date_button.setChecked(True)
+        self.sort_by_category_button.setChecked(False)
+        self.h_layout.addWidget(sort_label) 
+        self.h_layout.addWidget(self.sort_by_date_button)
+        self.h_layout.addWidget(sort_date_label)
+        self.h_layout.addWidget(self.sort_by_category_button)
+        self.h_layout.addWidget(sort_category_label)
+        self.h_layout.addStretch() # align to the left
+    
         self.list_widget = QListWidget()
+        self.sorting_type = "date"
         self.write_expenses_window()
-        
-        
+    
+        self.layout.addLayout(self.h_layout)
         self.layout.addWidget(self.list_widget)
         self.central_widget.setLayout(self.layout)
 
+    def _sort_by_date(self):
+        self.sort_items("date")
+        self.sort_by_category_button.setChecked(False)
+        self.write_expenses_window()
+        # Keep checked
+        self.sort_by_date_button.setChecked(True)
+        
+    def _sort_by_category(self):
+        self.sort_items("category")
+        self.sort_by_date_button.setChecked(False)
+        self.write_expenses_window()
+        # Keep checked
+        self.sort_by_category_button.setChecked(True)
+
+    def sort_items(self, method):   # Sort self.items based on button choice
+        if method == "date":
+            self.items = sorted(self.items, key=lambda x: int(x[0]))
+        elif method == "category":
+            self.items = sorted(self.items, key=lambda x: CATEGORIES.index(x[1]))
+
     def make_printing_nice(self):
         #Making our printing nice in the table. So everything is well separated in tabs
+        #items_print and self.items MUST have the same ordering!!
+        
         items_print = []
         for item in self.items:
             day, category, value, description = item
@@ -139,6 +183,9 @@ class ExpensesWindow(QMainWindow):
 
 
     def write_expenses_window(self):
+        
+        self.list_widget.clear()
+        self.items_print = self.make_printing_nice()
 
         for item in self.items_print:
             
@@ -433,7 +480,8 @@ class ExpenseManager(QMainWindow):
         self.figure_summary_all.clear()
         
         year, month = time.strftime("%Y,%m").split(',')
-        month = MONTHS[int(month)-1] #Convert to proper month name
+        month_label = MONTHS[int(month)-2] # The name of the month before, for the plot
+        month = MONTHS[int(month)-1] #Convert to proper month name 
         
         items = self.db_handler.get_cumulative_expenses_until_period(month, year)
         ax = self.figure_summary_all.add_subplot(111)
@@ -453,7 +501,7 @@ class ExpenseManager(QMainWindow):
                 ax.text(day, value+std + 75, "{:.2f}€".format(value), ha='center', va='bottom')
                 ax.text(day, value+std + 0.5, "(±{:d}€)".format(int(std)), ha='center', va='bottom', fontsize=7)
 
-            ax.set_title(f"Average of expenses until {month} {year}"+" [Total: {:.2f}€]".format(sum(values_expenses.T[0])), loc='right')
+            ax.set_title(f"Average of expenses until {month_label} {year}"+" [Total: {:.2f}€]".format(sum(values_expenses.T[0])), loc='right')
             
             value_plus_std = np.sum(values_expenses, axis=1)
             ax.set_ylim(top=1.25*max(value_plus_std))
