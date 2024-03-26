@@ -225,6 +225,7 @@ class ExpensesWindow(QMainWindow):
                 expense_to_exclude = self.items[idx]
                 break
         self.db_handler.delete_entry(self.month, self.year, *expense_to_exclude)
+
   
 class DateWindow(QMainWindow):
 
@@ -398,6 +399,52 @@ class DateWindow(QMainWindow):
         ax.get_yaxis().set_visible(False)
         self.canvas_summary_date.draw()
 
+
+class ConfirmationDateWindow(QMainWindow):
+    
+    proceedAction = pyqtSignal(bool)
+
+    def __init__(self, month_selected, year_selected, month_today, year_today):
+        super().__init__()
+  
+        self.month_selected = month_selected
+        self.year_selected = year_selected
+        self.month_today = month_today
+        self.year_today = year_today
+        
+        self.setGeometry(600, 250, 300, 150)
+        
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+
+        self.layout = QVBoxLayout()
+        
+        self.label = QLabel(f"You selected {self.month_selected}/{self.year_selected} but today is {self.month_today}/{self.year_today}.\nDo you want to continue?")
+        self.layout.addWidget(self.label)
+
+        self.buttons_layout = QHBoxLayout()
+        self.accept = QPushButton(u'\u2713')
+        self.accept.setFixedWidth(130)
+        self.accept.setStyleSheet("color: green; font: bold 30px")
+        self.accept.clicked.connect(self.__accept)
+        self.cancel = QPushButton("X")
+        self.cancel.setFixedWidth(130)
+        self.cancel.setStyleSheet("color: red; font: bold 30px")
+        self.cancel.clicked.connect(self.__cancel)
+        self.buttons_layout.addWidget(self.accept)
+        self.buttons_layout.addWidget(self.cancel)
+        
+        self.layout.addLayout(self.buttons_layout)
+        self.central_widget.setLayout(self.layout)
+
+    def __accept(self):
+        self.proceedAction.emit(True)
+        self.close()
+        
+    def __cancel(self):
+        self.proceedAction.emit(False)
+        self.close()
+
 class ExpenseManager(QMainWindow):
     def __init__(self, db_handler):
         super().__init__()
@@ -469,10 +516,23 @@ class ExpenseManager(QMainWindow):
         if month not in MONTHS or year not in YEARS:
             return
 
-        self.date_window = DateWindow(self.db_handler, month, year)
-        self.date_window.closed.connect(self.close_WindowDate)
-        self.date_window.show()
-    
+        year_today, month_today = time.strftime("%Y,%m").split(',')
+        month_today = MONTHS[int(month_today)-1] #Convert to proper month name
+        
+        if month_today != month or year_today != year:
+            self.confirmation_window = ConfirmationDateWindow(month, year, month_today, year_today)
+            self.confirmation_window.proceedAction.connect(lambda accept_date: self.onConfirmationWindow(accept_date, month, year))
+            self.confirmation_window.show()
+        else:
+            self.onConfirmationWindow(True, month, year)
+
+    def onConfirmationWindow(self, accept_date, month, year):
+        if accept_date:
+            self.date_window = DateWindow(self.db_handler, month, year)
+            self.date_window.closed.connect(self.close_WindowDate)
+            self.date_window.show()
+        
+        
     def close_WindowDate(self):
         self.date_window = None
 
