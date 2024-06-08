@@ -337,6 +337,14 @@ class DateWindow(QMainWindow):
         infoValid = False
         try:  # Checking if all info given by the user makes sense
             if day.isdigit():
+                if "+" in value:
+                    values = [v.strip() for v in value.split('+')]
+                    for v in values:
+                        if '.' in v and len(v.split('.')[-1]) > 2:
+                            raise ValueError("Invalid number")
+                    value = sum([float(v) for v in values])                     
+                    value = str(value)
+                
                 if float(value) > 0 and int(day) > 0 and int(day) < 32 and description != "" and category in CATEGORIES:
                     infoValid = True
                 if "." in value and len(value.split('.')[-1]) > 2:
@@ -347,7 +355,7 @@ class DateWindow(QMainWindow):
         self.timer_label.start(3000) #3 seconds for the label timer
         if infoValid > 0:
             self.label_confirm_info.setStyleSheet("color: green")
-            self.label_confirm_info.setText("Expense added "+u'\u2713') #\u2713 is unicode for the checkmark
+            self.label_confirm_info.setText(f"Expense {category}/{float(value):.2f}€ added "+u'\u2713') #\u2713 is unicode for the checkmark
             
             if len(day) == 1:  #Standarizing notation 
                 day = "0"+day
