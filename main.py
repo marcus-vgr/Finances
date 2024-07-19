@@ -481,7 +481,8 @@ class ExpenseManager(QMainWindow):
         
         self.input_year = QComboBox()
         self.input_year.addItems(["Year..."] + YEARS)
-        self.input_year.setCurrentText("Year...")
+        currentYear = time.strftime("%Y")
+        self.input_year.setCurrentText(currentYear)
         self.input_year.setFixedWidth(80)
         self.h_layout_input.addWidget(self.input_year)
         
