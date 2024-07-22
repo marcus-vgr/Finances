@@ -343,7 +343,7 @@ class DateWindow(QMainWindow):
                         if '.' in v and len(v.split('.')[-1]) > 2:
                             raise ValueError("Invalid number")
                     value = sum([float(v) for v in values])                     
-                    value = str(value)
+                    value = f"{value:.2f}"
                 
                 if float(value) > 0 and int(day) > 0 and int(day) < 32 and description != "" and category in CATEGORIES:
                     infoValid = True
