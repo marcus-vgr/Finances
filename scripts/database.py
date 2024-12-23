@@ -46,7 +46,11 @@ class DatabaseHandler:
                             value=? AND
                             description=?
         ''',(month, year, day, category, value, description))
-        self.conn.commit()
+        if self.cursor.rowcount > 0:
+            self.conn.commit()
+            return True
+        else:
+            return False
     
     def get_elements_period(self, month: str, year: str):
         self.cursor.execute('SELECT * FROM user_data WHERE month=? AND year=?',

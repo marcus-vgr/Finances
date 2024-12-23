@@ -19,7 +19,7 @@ MONTHS = [
 DICT_MONTHS_NAMETONUMBER = {name:number+1 for number,name in enumerate(MONTHS)}
 DICT_MONTHS_NUMBERTONAME = {number+1:name for number,name in enumerate(MONTHS)}
 
-with open(os.path.join(MAIN_DIR, ".tokenTelegram.txt"), "r") as f:
+with open(os.path.join(MAIN_DIR, ".tokenTelegram"), "r") as f:
     API_TELEGRAM_BOT = f.readlines()[0].strip()
     
 DB_FILENAME = os.path.join(MAIN_DIR, "MyExpenses.db")
