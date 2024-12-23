@@ -93,7 +93,12 @@ class TelegramBot:
             await self.bot.send_message(text="COULDN'T DELETE THE FOLLOWING EXPENSES: ", chat_id=self.chat_id)
             for message in fail_del_entries:
                 await self.bot.send_message(text=message, chat_id=self.chat_id)
-            
+        
+    async def get_updates(self):
+        ## Fetch updates asynchronously.
+        offset = self.last_update_id+1 if self.last_update_id else None
+        self.updates = await self.bot.getUpdates(offset=offset)    
+        
     async def run(self):
         ## Asynchronous run logic.
         await self.get_updates()
@@ -102,19 +107,13 @@ class TelegramBot:
             self.save_last_update_id(update.update_id)
             self.messages.append(update.message.text)
             self.chat_id = update.message.chat.id
-        await self.processMessages()
-        
-    async def get_updates(self):
-        ## Fetch updates asynchronously.
-        offset = self.last_update_id+1 if self.last_update_id else None
-        self.updates = await self.bot.getUpdates(offset=offset)     
+        if self.messages:
+            await self.processMessages()
+        else:
+            print("There are no new messages...")
+             
 
 async def mainBot():
     CreateBackup()
     bot = TelegramBot()
-    await bot.run()
-
-
-if __name__ == "__main__":
-    asyncio.run(mainBot())
-    
+    await bot.run()    

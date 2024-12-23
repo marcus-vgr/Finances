@@ -1,2 +1,2 @@
 source FinancesEnv/bin/activate
-python main.py
+python main.py --method ui
