@@ -19,20 +19,20 @@ class TelegramBot:
         self.db_handler = DatabaseHandler()
         self.bot = Bot(API_TELEGRAM_BOT)
 
-        self.last_update_id_filename = os.path.join(MAIN_DIR, ".last_update_id_bot")
-        self.get_last_update_id()
+        self.last_update_timestamp_filename = os.path.join(MAIN_DIR, ".last_update_timestamp_bot")
+        self.get_last_update_timestamp()
         self.chat_id = None
         
-    def get_last_update_id(self):
-        if os.path.isfile(self.last_update_id_filename):
-           with open(self.last_update_id_filename, "r") as f:
-               self.last_update_id = int(f.readlines()[0].strip()) 
+    def get_last_update_timestamp(self):
+        if os.path.isfile(self.last_update_timestamp_filename):
+           with open(self.last_update_timestamp_filename, "r") as f:
+               self.last_update_timestamp = float(f.readlines()[0].strip()) 
         else:
-            self.last_update_id = None
+            self.last_update_timestamp = 0
 
-    def save_last_update_id(self, update_id: int):
-        with open(self.last_update_id_filename, "w") as f:
-            f.write(str(update_id))
+    def save_last_update_timestamp(self, update_timestamp: float):
+        with open(self.last_update_timestamp_filename, "w") as f:
+            f.write(str(update_timestamp))
 
     async def processMessages(self):
         new_entries = [m for m in self.messages if "DELETE" not in m]
@@ -96,15 +96,21 @@ class TelegramBot:
         
     async def get_updates(self):
         ## Fetch updates asynchronously.
-        offset = self.last_update_id+1 if self.last_update_id else None
-        self.updates = await self.bot.getUpdates(offset=offset)    
+        self.updates = []
+        updates = await self.bot.getUpdates()    
+        for update in updates:
+            #message = update.message.text
+            timestamp = update.message.date.timestamp()
+            if timestamp > self.last_update_timestamp:
+                self.updates.append(update)
+            
         
     async def run(self):
         ## Asynchronous run logic.
         await self.get_updates()
         self.messages = []
         for update in self.updates:        
-            self.save_last_update_id(update.update_id)
+            self.save_last_update_timestamp(update.message.date.timestamp())
             self.messages.append(update.message.text)
             self.chat_id = update.message.chat.id
         if self.messages:
