@@ -114,6 +114,9 @@ class TelegramBot:
             self.messages.append(update.message.text)
             self.chat_id = update.message.chat.id
         if self.messages:
+            print("The following messages will be processed: ")
+            for message in self.messages:
+                print(message)
             await self.processMessages()
         else:
             print("There are no new messages...")
