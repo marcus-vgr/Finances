@@ -472,6 +472,7 @@ class ExpenseManager(QMainWindow):
         
         year, month = time.strftime("%Y,%m").split(',')
         month_label = MONTHS[int(month)-2] # The name of the month before, for the plot
+        year_label = year if month_label != "December" else str( int(year)-1 )
         month = MONTHS[int(month)-1] #Convert to proper month name 
         
         items = self.db_handler.get_cumulative_expenses_until_period(month, year)
@@ -492,7 +493,7 @@ class ExpenseManager(QMainWindow):
                 ax.text(day, value+std + 75, "{:.2f}€".format(value), ha='center', va='bottom')
                 ax.text(day, value+std + 0.5, "(±{:d}€)".format(int(std)), ha='center', va='bottom', fontsize=7)
 
-            ax.set_title(f"Average of expenses until {month_label} {year}"+" [Total: {:.2f}€]".format(sum(values_expenses.T[0])), loc='right')
+            ax.set_title(f"Average of expenses until {month_label} {year_label}"+" [Total: {:.2f}€]".format(sum(values_expenses.T[0])), loc='right')
             
             value_plus_std = np.sum(values_expenses, axis=1)
             ax.set_ylim(top=1.25*max(value_plus_std))
