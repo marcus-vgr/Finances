@@ -69,7 +69,7 @@ class UserInputProcessor:
         Value should be integer or float of at most 2 decimal places.
         We accept addition operation e.g. "2 + 4.50"
         """
-        values = [value for value in valueString.split('+')]
+        values = [value.strip() for value in valueString.split('+')]
         
         validValues = True
         value_pattern = r"^\d+(\.\d{1,2})?$"
